@@ -33,9 +33,6 @@ float deltaY;
 
 std::vector<float> DeltaCoords;
 
-std::random_device rd;
-
-std::mt19937 gen(rd());
 
 void updateDeltas(){
   thetaDelta = theta - prevAngle;
@@ -76,107 +73,6 @@ void odomCalc(){
   yPos = yPos + deltaY;
 }
 
-void mclInit(MCLParams* params){
-  std::uniform_real_distribution<double> distr(0.0, 144.0);
-  sigma = params->sigma;
-  MCLParticles = params->MCLParticles;
-  MCLSensors = params->sensors;
-  for (int i = 0; i < MCLParticles; i++) {
-    float xDist = distr(gen);
-    float yDist = distr(gen);
-    particles.push_back(particle(xDist, yDist, 1.0 / MCLParticles));
-  }
-}
-
-
-void mclStep(){
-  float inv_two_sigma_sq = 1.0 / (2.0 * sigma * sigma);
-  std::normal_distribution<double> noise(0.0, sigma);
-  std::uniform_real_distribution<double> wheelOfFortune(0.0, 1.0 / MCLParticles);
-  float maxReading = 78.75;
-  std::vector<MCLreading> frame;
-  for (const auto& sensor : MCLSensors){
-    float reading = sensor.sensor->objectDistance(vex::mm);
-    float offset = sensor.offset;
-    float turn = sensor.turn;
-    frame.push_back(MCLreading(reading, offset, turn));
-  }
-  for (auto& p : particles) {
-    p.weight = 1.0;
-    // move each particle by odom deltas along with noise and set heading to theta
-    p.x += deltaX + noise(gen);
-    p.y += deltaY + noise(gen);
-
-    // simulate readings for each particle and then compare them to actual readings
-    // weight each particle (1/sigma*sqrt(2*pi)*e^-((reading - actual)^2/(2*sigma^2)))
-
-    // NEED TO ACCOUNT FOR OFFSET OF SENSORS
-    for (const auto& read : frame){
-      float min_distance = maxReading;
-      float localTheta = theta + read.turn;
-      for (int i = 0; i < fieldMap.size()-1; i++){
-        float x1 = fieldMap[i][0];
-        float y1 = fieldMap[i][1];
-        float x2 = fieldMap[i+1][0];
-        float y2 = fieldMap[i+1][1];
-
-        float ry = std::sin(localTheta); 
-        float rx = std::cos(localTheta);
-
-        if (std::min(x1, x2) > p.x + maxReading && rx > 0) {
-          continue;
-        }
-
-        float denom = (x1 - x2) * ry - (y1 - y2) * rx;
-        if (std::abs(denom) < 1e-6){
-          continue;
-        }
-        float t = ((x1 - p.x) * ry - (y1 - p.y) * rx) / denom;
-        float u = ((x1 - x2) * (y1 - p.y) - (y1 - y2) * (x1 - p.x)) / denom;
-
-        if (0 <= t && t <= 1 && u >= 0) {
-            if (u < min_distance) {
-                min_distance = u;
-            }
-        }
-      }
-      
-      if (min_distance > 54){
-        continue;
-      }
-      // Weight the particle based on the minimum distance
-      float particleError = min_distance - read.reading;
-      float weightHold = (1.0 / (min_distance * sqrt(2 * M_PI) * sigma)) * exp(-1 * (particleError * particleError) * inv_two_sigma_sq);
-      p.weight *= weightHold;
-      
-      
-    }
-
-  }
-  // Resample particles based on weight using Stochastic Universal Sampling
-  float particleSum = 0;
-  for (auto& p : particles){
-    particleSum += p.weight;
-  }
-  for (auto& p : particles){
-    p.weight /= particleSum;
-  }
-  float step = 1.0 / MCLParticles;
-  float r = wheelOfFortune(gen);
-  float c = particles[0].weight;
-  int i = 0;
-  std::vector<particle> newParticles;
-  for (int m = 0; m < MCLParticles; m++) {
-    float U = r + m * step;
-    while (U > c) {
-      i++;
-      c += particles[i].weight;
-    }
-    newParticles.push_back(particles[i]);
-  }
-  particles = newParticles;
-}
-
 
 
 void odomDrive(void* param){
@@ -200,9 +96,6 @@ while (go==1){
   updateDeltas();
   odomCalc();
   updatePrev();
-  if (params->mcl == true){
-    mclStep();
-  }
 
   vex::task::sleep(10);
   //pros::delay(10);

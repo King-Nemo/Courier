@@ -60,6 +60,29 @@ void PID::changeVals(float inkP, float inkI, float inkD){
         return output;
     }
 
+    float PID::update(float sig, bool EMA, float alpha){
+        float error = sig;
+        
+        if (start == 0){
+          prevError = error;
+          start = 1;
+        }
+
+        if(EMA){
+          error = alpha * error + (1 - alpha) * prevError;
+        }
+        integral += error;
+        derivative = error - prevError;
+        output =  kP * error + kI * integral + kD * derivative;
+        prevError = error;
+
+        if(sgn(error) != sgn(prevError)) integral = 0;
+
+        if(std::abs(error) < 0.5) integral = 0;
+        
+        return output;
+    }
+
     float PID::update(float sig, float pos){
         float error = sig - pos;   
         if (start == 0){
@@ -82,8 +105,8 @@ void PID::changeVals(float inkP, float inkI, float inkD){
       output = 0;
     }
 
-PID angularPID(0.1,0,6);
-PID lateralPID(3,0,6);
+PID angularPID(turn_kp,turn_ki,turn_kd);
+PID lateralPID(distance_kp,distance_ki,distance_kd);
 
 chassis* motionChassis;
 
@@ -94,8 +117,6 @@ void initMotion(chassis* initC, std::vector<float> angV, std::vector<float> latV
 }
 
 std::vector<double> toPointStep(float sigX,float sigY, std::vector<double> pos, float angled){
-  
-  
   float wrapped = fmod(((-pos[2])-180),360)+180;
   outA = angularPID.update(fmod(((angled-wrapped)-180),360)+180);
   dist = hypot(sigX-pos[0],sigY-pos[1]);
@@ -117,6 +138,7 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
   float dy = tarY - pos[1];
   float rawDist;
   int settleCount = 0;
+  Brain.Timer.clear();
   if(params.settleLength == 0) params.settleLength = 10;
     do{
       std::vector<double> pos = getPos();
@@ -171,12 +193,13 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
 
       if (std::abs(rawDist) < exit) {
             settleCount++;
-        } else {
+      } else {
             settleCount = 0;
-        }
+      }
 
-        if (settleCount >= params.settleLength) break;
+      if (settleCount >= params.settleLength) break;
 
+      if(Brain.Timer.time(vex::msec) > params.timeout) break;
     }while(true);
     left_out = 0;
     right_out = 0;
@@ -199,6 +222,7 @@ void toPose(float tarX, float tarY, float tarT, float exit, moveParams params){
   float rawDist = hypot(dx, dy);
   float carrDist;
   float angleError;
+  Brain.Timer.clear();
     do{
       std::vector<double> pos = getPos();
 
@@ -240,6 +264,8 @@ void toPose(float tarX, float tarY, float tarT, float exit, moveParams params){
       //pros::lcd::print(0, "L: %f A: %f", dist, angleError);
       //pros::lcd::print(0, "X: %f Y: %f", carr.x, carr.y); 
       vex::wait(10, vex::msec);
+
+      if(Brain.Timer.time(vex::msec) > params.timeout) break;
     }while(std::abs(rawDist) > exit || std::abs(angleError) > 5);
     left_out = 0;
     right_out = 0;
@@ -248,12 +274,13 @@ void toPose(float tarX, float tarY, float tarT, float exit, moveParams params){
 }
 
 
-void toAng(float tarT, float exit){
+void toAng(float tarT, float exit, moveParams params){
 
   angularPID.reset();
   lateralPID.reset();
   float err;
   int settleCount = 0;
+  Brain.Timer.clear();
     do{
       float angled = constrainAngle(tarT - getAng());
       outA = angularPID.update(constrainAngle(angled));
@@ -273,6 +300,8 @@ void toAng(float tarT, float exit){
         }
 
         if (settleCount > 10) break;
+
+        if(Brain.Timer.time(vex::msec) > params.timeout) break;
     }while(true);
     left_out = 0;
     right_out = 0;
@@ -282,7 +311,7 @@ void toAng(float tarT, float exit){
     motionChassis->rightMotors->stop();
 }
 
-void turnToPoint(float tarX, float tarY, float exit){
+void turnToPoint(float tarX, float tarY, float exit, moveParams params){
 
   angularPID.reset();
   lateralPID.reset();
@@ -290,6 +319,8 @@ void turnToPoint(float tarX, float tarY, float exit){
   std::vector<double> pos = getPos();
   float targetAngle = atan2(tarX - pos[0], tarY - pos[1]) * (180/M_PI);
     int settleCount = 0;
+
+    Brain.Timer.clear();
     do{
 
       float currentHeading = getAng();
@@ -314,6 +345,8 @@ void turnToPoint(float tarX, float tarY, float exit){
         }
 
         if (settleCount > 10) break;
+
+        if(Brain.Timer.time(vex::msec) > params.timeout) break;
     }while(true);
     //}while(1==2);
     left_out = 0;
@@ -331,6 +364,9 @@ int count = 0;
   float rawDist;
   float remainDist;
   int settleCount = 0;
+
+  Brain.Timer.clear();
+
   if(params.settleLength == 0) params.settleLength = 10;
     do{
       std::vector<double> pos = getPos();
@@ -373,6 +409,7 @@ int count = 0;
 
         if (settleCount >= params.settleLength) break;
 
+        if(Brain.Timer.time(vex::msec) > params.timeout) break;
     }while(true);
     left_out = 0;
     right_out = 0;

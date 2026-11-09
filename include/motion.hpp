@@ -25,6 +25,7 @@ class PID{
     void changeVals(float inkP, float inkI, float inkD);
     float update(float sig);
     float update(float sig, float pos);
+    float update(float sig, bool EMA, float alpha);
     void reset();
     
 };
@@ -38,6 +39,7 @@ struct moveParams{
     float dlead;
     float MAXSPEED;
     int settleLength;
+    int timeout = 100000;
     void init(){
         reversed = false;
         steady = false;
@@ -47,6 +49,7 @@ struct moveParams{
         dlead = 0.1;
         MAXSPEED = 0;
         settleLength = 10;
+        timeout = 100000;
     }
 };
 
