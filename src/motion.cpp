@@ -418,6 +418,84 @@ int count = 0;
 }
 
 
+void toDist(float tarDist, float exit, moveParams params){
+  int count = 0;
+
+  angularPID.reset();
+  lateralPID.reset();
+  std::vector<double> pos = getPos();
+  float dist;
+  //float angled = atan2(tarY - pos[1], tarX - pos[0]) * (180/M_PI);
+  //float targetAngle = atan2(tarX - pos[0], tarY - pos[1]) * (180/M_PI);
+  // float dx = tarX - pos[0];
+  // float dy = tarY - pos[1];
+  float rawDist;
+  int settleCount = 0;
+  Brain.Timer.clear();
+  if(params.settleLength == 0) params.settleLength = 10;
+    do{
+      std::vector<double> pos = getPos();
+      if(params.reversed) pos[2] += 180;
+      
+
+      rawDist = tarDist - (std::hypot(pos[0], pos[1])); 
+    
+
+      // float angleRad = getAng() * (M_PI / 180.0);
+      // float forwardX = sin(angleRad);
+      // float forwardY = cos(angleRad);
+      // dist = (dx * forwardX + dy * forwardY); 
+
+      // if(params.straight || rawDist < params.settleDist) angleError = 0;
+
+      // if(!params.cosScalling) dist = dist * std::cos((angleError * M_PI) / 180.0);
+      
+      // if(!params.cosScalling && std::cos((angleError * M_PI) / 180.0) < 0) dist = 0;
+      
+
+      outA = 0;
+      outL = lateralPID.update(rawDist);
+
+      left_out = outL - outA;
+      right_out = outL + outA;
+
+
+      float max = fmax(std::abs(left_out), std::abs(right_out));
+      //pros::lcd::print(0, "R: %f, L: %f", max, params.MAXSPEED);
+
+      if (params.MAXSPEED == 0) params.MAXSPEED = 100;
+
+      if (max > params.MAXSPEED && params.MAXSPEED > 0){
+        left_out = (left_out / max) * params.MAXSPEED;
+        right_out = (right_out / max) * params.MAXSPEED;
+      }
+
+      count = count + 1;
+
+      motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
+      motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
+      //pros::lcd::print(0, "L: %f A: %f", rawDist, angleError);
+      //pros::lcd::print(2, "X: %f Y: %f", pos[0], pos[1]); 
+      
+      vex::wait(10, vex::msec);
+
+      if (std::abs(rawDist) < exit) {
+            settleCount++;
+      } else {
+            settleCount = 0;
+      }
+
+      if (settleCount >= params.settleLength) break;
+
+      if(Brain.Timer.time(vex::msec) > params.timeout) break;
+    }while(true);
+    left_out = 0;
+    right_out = 0;
+    motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
+    motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
+}
+
+
 
 float pt_to_pt_distance (Point pt1,Point pt2){
     float distance = std::sqrt(std::pow((pt2.x - pt1.x), 2) + std::pow((pt2.y - pt1.y),2));
