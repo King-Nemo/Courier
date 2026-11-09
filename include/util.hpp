@@ -13,6 +13,18 @@ struct Point {
                 theta(theta) {}
         };
 
+
+struct Coordinate{
+    float x ;
+    float y ;
+};
+
+struct Pose{
+
+    float angle;
+    Coordinate pos;
+};
+
         
 struct chassis{
         vex::inertial* imu;

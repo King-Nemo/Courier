@@ -177,7 +177,7 @@ void mclStep(){
   particles = newParticles;
 }
 
-
+void rclStep(){}
 
 void odomDrive(void* param){
 initParams* params = static_cast<initParams*>(param);

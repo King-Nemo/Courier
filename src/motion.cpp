@@ -391,3 +391,35 @@ float pt_to_pt_distance (Point pt1,std::pair<float, float> pt2){
     float distance = std::sqrt(std::pow((pt2.first - pt1.x), 2) + std::pow((pt2.second - pt1.y),2));
     return distance;
 }
+
+
+// class ProfileGenerator{
+// public:
+//   static std::vector<float> generateTrapezoidalProfile(float startPos, float endPos, float startVel, float endVel, float maxVel, float maxAccel);
+// };
+
+// std::vector<float> ProfileGenerator::generateTrapezoidalProfile(float startPos, float endPos, float startVel, float endVel, float maxVel, float maxAccel)
+// {
+//   std::vector<float> profile;
+//   // Generate the trapezoidal motion profile
+//   // Nothing for now
+//   return profile;
+// }
+
+// class OneDFollower
+// {
+// private:
+//   /* data */
+// public:
+//   OneDFollower(/* args */);
+//   //~OneDFollower();
+
+// };
+
+// OneDFollower::OneDFollower(/* args */)
+// {
+// }
+
+
+
+
