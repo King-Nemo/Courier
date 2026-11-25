@@ -17,23 +17,17 @@ extern inertial inertial_sensor;
 extern rotation horizontal_tracker;
 extern rotation vertical_tracker;
 
-extern motor intaketop;
-extern motor intakebottom;
-extern motor_group intake;
+extern motor rightroller;
+extern motor leftroller;
+extern motor_group roller;
 
 extern motor leftlift;
 extern motor rightlift;
 extern motor_group lift;
 
-extern distance front;
-extern distance rear;
+extern motor claw;
 
-extern digital_out tray;
-extern digital_out claw;
-extern digital_out tilter;
-
-extern optical wingsensor;
-
+extern optical ToggleSensor;
 
 // USER-CONFIGURABLE PARAMETERS (CHANGE BEFORE USING THIS TEMPLATE)
 extern double distance_between_wheels;
@@ -55,8 +49,8 @@ extern bool dir_change_end;
 extern double min_output;
 extern double max_slew_accel_fwd;
 extern double max_slew_decel_fwd;
-extern double max_slew_accel_rev;
-extern double max_slew_decel_rev;
+extern double max_slew_accel_ang;
+extern double max_slew_decel_ang;
 extern double chase_power;
 
 /**

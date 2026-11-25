@@ -25,6 +25,13 @@ double constrainAngle(double x){
     return x - 180;
 }
 
+double constrain90(double x){
+    x = fmod(x + 90,180);
+    if (x < 0)
+        x += 180;
+    return x - 90;
+}
+
 float outA;
 float outL; 
 
@@ -36,12 +43,14 @@ PID::PID(float inkP, float inkI, float inkD){
 }
 
 void PID::changeVals(float inkP, float inkI, float inkD){
+
         kP = inkP;
         kI = inkI;
         kD = inkD;
 }
 
     float PID::update(float sig){
+      
         float error = sig;
         
         if (start == 0){
@@ -57,6 +66,10 @@ void PID::changeVals(float inkP, float inkI, float inkD){
 
         if(std::abs(error) < 0.5) integral = 0;
         
+        // Brain.Screen.clearScreen();
+        // Brain.Screen.setCursor(1, 1);
+        // Brain.Screen.print("err: %f out: %f deriv %f", sig, output, kP);
+
         return output;
     }
 
@@ -116,6 +129,14 @@ void initMotion(chassis* initC, std::vector<float> angV, std::vector<float> latV
    lateralPID.changeVals(latV[0],latV[1],latV[2]);
 }
 
+void initMotion(chassis* initC){
+   motionChassis = initC;
+   angularPID.changeVals(turn_kp,turn_ki,turn_kd);
+   lateralPID.changeVals(distance_kp,distance_ki,distance_kd);
+}
+
+
+
 std::vector<double> toPointStep(float sigX,float sigY, std::vector<double> pos, float angled){
   float wrapped = fmod(((-pos[2])-180),360)+180;
   outA = angularPID.update(fmod(((angled-wrapped)-180),360)+180);
@@ -138,6 +159,7 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
   float dy = tarY - pos[1];
   float rawDist;
   int settleCount = 0;
+  bool AngSettled = false;
   Brain.Timer.clear();
   if(params.settleLength == 0) params.settleLength = 10;
     do{
@@ -151,29 +173,54 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
       if (!params.steady) targetAngle = atan2(tarX - pos[0], tarY - pos[1]) * (180/M_PI);
  
       float angleError = constrainAngle(targetAngle - pos[2]);
-    
 
       float angleRad = getAng() * (M_PI / 180.0);
       float forwardX = sin(angleRad);
       float forwardY = cos(angleRad);
       dist = (dx * forwardX + dy * forwardY); 
 
-      if(params.straight || rawDist < params.settleDist) angleError = 0;
+      if(params.straight || rawDist < params.settleLength) angleError = 0;
 
       if(!params.cosScalling) dist = dist * std::cos((angleError * M_PI) / 180.0);
       
-      if(!params.cosScalling && std::cos((angleError * M_PI) / 180.0) < 0) dist = 0;
+      if(!params.cosScalling && std::cos((angleError * M_PI) / 180.0) < 0) dist = -dist;
       
 
-      outA = angularPID.update(angleError);
+      outA = angularPID.update(constrain90(angleError));
+      //outA = angularPID.update(angleError);
       outL = lateralPID.update(dist);      
+
+      // if(params.angleExit != 0){
+      //   if(std::abs(constrain90(angleError)) < params.angleExit){
+      //     outA = 0;
+      //     AngSettled = true;
+      //   }
+      // }else{
+      //   if(std::abs(constrain90(angleError)) < 5){
+      //     outA = 0;
+      //     AngSettled = true;
+      //   }
+      // }
+
+      // if(std::abs(constrain90(angleError)) < 20){
+      //     outA = outA * 0.5;
+      // }
+
+      if(AngSettled){
+        outA = 0;
+      }
 
       left_out = outL - outA;
       right_out = outL + outA;
 
+      // if(std::abs(angleError) > 120){
+      //   left_out = outL;
+      //   right_out = outL; 
+      // }
+
 
       float max = fmax(std::abs(left_out), std::abs(right_out));
-      //pros::lcd::print(0, "R: %f, L: %f", max, params.MAXSPEED);
+
 
       if (params.MAXSPEED == 0) params.MAXSPEED = 100;
 
@@ -186,7 +233,14 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
 
       motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
       motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
-      //pros::lcd::print(0, "L: %f A: %f", rawDist, angleError);
+      Brain.Screen.clearScreen();
+      Brain.Screen.setCursor(1, 1);
+      //Brain.Screen.print("R: %f, L: %d", max, params.cosScalling);
+      Brain.Screen.print("X: %f Y: %f Theta %f", getPos()[0], getPos()[1], getPos()[2]);
+      Brain.Screen.setCursor(2, 1);
+      Brain.Screen.print("Dist: %f Angle: %f", rawDist, angleError);
+      Brain.Screen.setCursor(3, 1);
+      Brain.Screen.print("L: %f R: %f", left_out, right_out);
       //pros::lcd::print(2, "X: %f Y: %f", pos[0], pos[1]); 
       
       vex::wait(10, vex::msec);
@@ -203,8 +257,10 @@ void toPoint(float tarX, float tarY, float exit, moveParams params){
     }while(true);
     left_out = 0;
     right_out = 0;
-    motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
-    motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
+    // motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
+    // motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
+    motionChassis->leftMotors->stop(vex::brakeType::hold);
+    motionChassis->rightMotors->stop(vex::brakeType::hold);
 }
 
 
@@ -355,7 +411,7 @@ void turnToPoint(float tarX, float tarY, float exit, moveParams params){
     motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
 }
 
-void arcToDist(float dist, float exit, float leftSpeed, float rightSpeed, moveParams params){
+void arcToDist(float tarT, float exit, float leftSpeed, float rightSpeed, moveParams params){
 int count = 0;
 
   angularPID.reset();
@@ -364,18 +420,12 @@ int count = 0;
   float rawDist;
   float remainDist;
   int settleCount = 0;
-
+  float err;
   Brain.Timer.clear();
 
   if(params.settleLength == 0) params.settleLength = 10;
-    do{
-      std::vector<double> pos = getPos();
-      
-      float dx = pos[0] - startPos[0];
-      float dy = pos[1] - startPos[1];
-      rawDist = std::hypot(dx, dy); 
-      remainDist = dist - rawDist;
-    
+  do{
+      float angled = constrainAngle(tarT - getAng());
 
       outL = lateralPID.update(remainDist);      
 
@@ -394,14 +444,14 @@ int count = 0;
       
       count = count + 1;
 
-      motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
-      motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
+      motionChassis->leftMotors->spin(vex::forward, leftSpeed, vex::percentUnits::pct);
+      motionChassis->rightMotors->spin(vex::forward, rightSpeed, vex::percentUnits::pct);
       //pros::lcd::print(0, "L: %f A: %f", rawDist, remainDist);
       //pros::lcd::print(2, "X: %f Y: %f", pos[0], pos[1]);
 
       vex::wait(10, vex::msec);
-
-      if (std::abs(remainDist) < exit) {
+      err = angled;
+      if (std::abs(err) < exit) {
             settleCount++;
         } else {
             settleCount = 0;
@@ -418,13 +468,15 @@ int count = 0;
 }
 
 
-void toDist(float tarDist, float exit, moveParams params){
+void toDist(float tarDist, int dir, float exit, moveParams params){
   int count = 0;
 
   angularPID.reset();
   lateralPID.reset();
   std::vector<double> pos = getPos();
+  std::vector<double> startPos = pos;
   float dist;
+  float prevOutL = 0;
   //float angled = atan2(tarY - pos[1], tarX - pos[0]) * (180/M_PI);
   //float targetAngle = atan2(tarX - pos[0], tarY - pos[1]) * (180/M_PI);
   // float dx = tarX - pos[0];
@@ -438,8 +490,8 @@ void toDist(float tarDist, float exit, moveParams params){
       if(params.reversed) pos[2] += 180;
       
 
-      rawDist = tarDist - (std::hypot(pos[0], pos[1])); 
-    
+      rawDist = tarDist - (std::hypot(pos[0] - startPos[0], pos[1] - startPos[1])); 
+
 
       // float angleRad = getAng() * (M_PI / 180.0);
       // float forwardX = sin(angleRad);
@@ -455,7 +507,18 @@ void toDist(float tarDist, float exit, moveParams params){
 
       outA = 0;
       outL = lateralPID.update(rawDist);
+      outL *= sgn(dir);
 
+      if(params.latAccelSlew != 0.0 ){
+        if(outL > prevOutL + params.latAccelSlew) outL = prevOutL + params.latAccelSlew;
+      }
+
+      if(params.latDecelSlew != 0.0 ){
+        if(outL < prevOutL - params.latDecelSlew) outL = prevOutL - params.latDecelSlew;
+      }
+
+
+      prevOutL = outL;
       left_out = outL - outA;
       right_out = outL + outA;
 
@@ -494,7 +557,6 @@ void toDist(float tarDist, float exit, moveParams params){
     motionChassis->leftMotors->spin(vex::forward, left_out, vex::percentUnits::pct);
     motionChassis->rightMotors->spin(vex::forward, right_out, vex::percentUnits::pct);
 }
-
 
 
 float pt_to_pt_distance (Point pt1,Point pt2){

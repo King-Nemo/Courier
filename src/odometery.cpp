@@ -145,8 +145,38 @@ vex::rotation* horiz_m = (params->horiz);
 
 int go = 1;
 while (go==1){
-  horiz = (horiz_m->position(vex::deg) * (Xdiameter * M_PI)/ 360)/100; //This is temporary becuase I dont feel like seting up a traking wheel, and dont have a rotation sensor
-  vert = (vert_m->position(vex::deg) * (Ydiameter * M_PI) * driveRatio / 360);// I used 4 inch wheels, so the 4 would be changed to what every size wheels And the 3/5 is the gear ratio
+  horiz = (horiz_m->position(vex::deg) * (Xdiameter * M_PI)/ 360); 
+  vert = (vert_m->position(vex::deg) * (Ydiameter * M_PI) * driveRatio / 360);
+  theta = imu->heading() * (M_PI/180); // gets the inertial and converts to radians
+  updateDeltas();
+  odomCalc();
+  updatePrev();
+
+  vex::task::sleep(10);
+}
+}
+
+void odomDriveX(void* param){
+driveParams* params = static_cast<driveParams*>(param);
+// sV_in, float sS_in, int imu_port, int tracking_port
+
+sS = params->sS_in;
+sV = params->sV_in;
+float Xdiameter = params->XwheelDiameter;
+float Ydiameter = params->YwheelDiameter;
+float driveRatio = params->DriveRatio;
+
+
+vex::motor_group* left_m = (params->leftMotor);
+vex::motor_group* right_m = (params->rightMotor);
+vex::inertial* imu = (params->imu);
+vex::rotation* horiz_m = (params->horiz);
+
+
+int go = 1;
+while (go==1){
+  horiz = (horiz_m->position(vex::deg) * (Xdiameter * M_PI)/ 360); 
+  vert = ((left_m->position(vex::deg) + right_m->position(vex::deg)) * (Ydiameter * M_PI) * driveRatio / 360);
   theta = imu->heading() * (M_PI/180); // gets the inertial and converts to radians
   updateDeltas();
   odomCalc();
@@ -212,6 +242,20 @@ bool init_odom(enum config con, odomParams params){
   }else if (con == XYTRACK){
     //setup for xytrack
     vex::thread odo(odomXY, heap_params);
+  }else{
+    delete heap_params;
+    return false;
+  }
+  return true;
+
+}
+
+bool init_odom(enum config con, driveParams params){
+  driveParams* heap_params = new driveParams(params);
+
+  if (con == DRIVEX){
+    //setup for ytrack only
+    vex::thread odo(odomDriveX, heap_params);
   }else{
     delete heap_params;
     return false;

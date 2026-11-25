@@ -1,5 +1,3 @@
-//credit to Richard wang (took this from RW cuz im lazy)
-
 #include "vex.h"
 
 using namespace vex;
@@ -7,7 +5,7 @@ using signature = vision::signature;
 using code = vision::code;
 
 // A global instance of brain used for printing to the V5 Brain screen
-brain  Brain = brain();
+brain  Brain;
 
 // VEXcode device constructors
 controller controller_1 = controller(primary);
@@ -18,33 +16,35 @@ controller controller_1 = controller(primary);
 // gearSetting is one of the following: ratio36_1(red), ratio18_1(green), ratio6_1(blue)
 // all chassis motors should be reversed appropriately so that they spin vertical when given a positive voltage input
 // such as driveChassis(12, 12)
-motor left_chassis1 = motor(PORT11, ratio6_1, false);
-motor left_chassis2 = motor(PORT12, ratio6_1, false);
+motor left_chassis1 = motor(PORT11, ratio6_1, true);
+motor left_chassis2 = motor(PORT12, ratio6_1, true);
 motor_group right_chassis = motor_group(left_chassis1, left_chassis2);
-motor right_chassis1 = motor(PORT13, ratio6_1, true);
-motor right_chassis2 = motor(PORT14, ratio6_1, true);
+motor right_chassis1 = motor(PORT13, ratio6_1, false);
+motor right_chassis2 = motor(PORT14, ratio6_1, false);
 motor_group left_chassis = motor_group(right_chassis1, right_chassis2);
 
-inertial inertial_sensor = inertial(PORT6);
+inertial inertial_sensor = inertial(PORT15);
 
 
 // Format is rotation(port, reversed)
 // just set these to random ports if you don't use tracking wheels
-rotation horizontal_tracker = rotation(PORT5, false);
-rotation vertical_tracker = rotation(PORT8, false);
+rotation horizontal_tracker = rotation(PORT16, true);
+rotation vertical_tracker = rotation(PORT20, false);
 
 // game specific devices for high stakes
-motor intaketop = motor(PORT4, ratio6_1, true);
-motor intakebottom = motor(PORT3, ratio18_1, false);
-motor_group intake = motor_group(intaketop,intakebottom);
+motor rightroller = motor(PORT3, ratio18_1, true);
+motor leftroller= motor(PORT5, ratio18_1, false);  
+motor_group roller = motor_group(rightroller,leftroller);
 
 motor leftlift = motor(PORT1, ratio36_1, false);
 motor rightlift = motor(PORT2, ratio36_1, true);
 motor_group lift = motor_group(leftlift,rightlift);
 
-digital_out tray = digital_out(Brain.ThreeWirePort.A);
-digital_out claw = digital_out(Brain.ThreeWirePort.C);
-digital_out tilter = digital_out(Brain.ThreeWirePort.B);
+
+motor claw = motor(PORT4, ratio18_1, false);
+
+optical ToggleSensor = optical(PORT6);
+
 
 //distance front = distance(PORT4);
 //distance rear = distance(PORT5);
@@ -71,8 +71,8 @@ double wheel_distance_in = (36.0 / 48.0) * 3.25 * M_PI;
 // distance_* : Linear PID for strai ght driving
 // turn_*     : PID for turning in place
 // heading_correction_* : PID for heading correction during linear movement
-double distance_kp = 1.1, distance_ki = 0.1, distance_kd = 15;
-double turn_kp = 0.32, turn_ki = 0.02, turn_kd = 2.8;
+double distance_kp = 0.3, distance_ki = 0.1, distance_kd = 15;
+double turn_kp = 0.32, turn_ki = 0.0, turn_kd = 2.8;
 double heading_correction_kp = 0.55, heading_correction_ki = 0, heading_correction_kd = 4;
 
 
@@ -106,10 +106,10 @@ bool dir_change_end = true;     // Less accel/decel due to expecting direction c
 double min_output = 4; // Minimum output voltage to motors while chaining movements
 
 // Maximum allowed change in voltage output per 10 msec during movement
-double max_slew_accel_fwd = 20;
-double max_slew_decel_fwd = 12;
-double max_slew_accel_rev = 16;
-double max_slew_decel_rev = 10;
+double max_slew_accel_fwd = 0.0; // 20
+double max_slew_decel_fwd = 0.0; //12
+double max_slew_accel_ang = 0.0; //16
+double max_slew_decel_ang = 0.0; // 10
 
 // Prevents too much slipping during boomerang movements
 // Decrease if there is too much drifting and inconsistency during boomerang

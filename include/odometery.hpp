@@ -6,7 +6,8 @@ enum config {
     DRIVE,
     XTRACK,
     YTRACK,
-    XYTRACK
+    XYTRACK,
+    DRIVEX
 };
 
 
@@ -33,6 +34,21 @@ struct initParams {
         bool mcl = false;
 
         initParams(vex::inertial* val, vex::motor_group* val1, vex::rotation* val2) : imu(val), driveMotor(val1), horiz(val2) {}
+    };
+
+struct driveParams {
+        float sV_in;
+        float sS_in;
+        float YwheelDiameter;
+        float XwheelDiameter;
+        float DriveRatio;
+        vex::inertial* imu;
+        vex::motor_group* leftMotor;
+        vex::motor_group* rightMotor;
+        vex::rotation* horiz;
+        bool mcl = false;
+
+        driveParams(vex::inertial* val, vex::motor_group* val1, vex::motor_group* val2, vex::rotation* val3) : imu(val), leftMotor(val1), rightMotor(val2), horiz(val3) {}
     };
 
 struct odomParams {
@@ -90,6 +106,7 @@ void odomY(void* param);
 void odomXY(void* param);
 bool init_odom(enum config con, initParams params);
 bool init_odom(enum config con, odomParams params);
+bool init_odom(enum config con, driveParams params);
 bool init_odom(enum config con, float sV_in, int imu_port, int tracking_port, float wheelDiameter);
 bool init_odom(enum config con, float sV_in, float sS_in, int imu_port, int horiz_port, int vert_port, float YwheelDiameter, float XwheelDiameter);
 std::vector<double> getPos();

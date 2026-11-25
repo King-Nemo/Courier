@@ -9,11 +9,15 @@
 #pragma once
 #include "vex.h"
 #include "odometery.hpp"
+#include "motion.hpp"
+#include "util.hpp"
+#include "autonomous.hpp"
 
 // A global instance of competition
 vex::competition Competition;
 
 // define your global instances of motors and other devices here
+
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
@@ -58,19 +62,44 @@ void autonomous(void) {
 /*---------------------------------------------------------------------------*/
 
 void usercontrol(void) {
+  driveParams params(&inertial_sensor, &right_chassis, &left_chassis, &horizontal_tracker);
+  // params.sV_in = 9.9/2;
+  params.sV_in = 0.0; // bc im running both sides of the drive
+  params.sS_in = horizontal_tracker_dist_from_center;
+  params.YwheelDiameter = (1/M_PI);
+  params.XwheelDiameter = horizontal_tracker_diameter;
+  params.DriveRatio = wheel_distance_in;
+
+  horizontal_tracker.resetPosition();
+  inertial_sensor.calibrate();
+  while(inertial_sensor.isCalibrating()) vex::wait(10, vex::msec);
+  
+  init_odom(DRIVEX, params);
   // User control code here, inside the loop
-  while (1) {
-    // This is the main execution loop for the user control program.
-    // Each time through the loop your program should update motor + servo
-    // values based on feedback from the joysticks.
+  chassis mainChassis(&inertial_sensor, &left_chassis, &right_chassis, &horizontal_tracker, nullptr);
+  initMotion(&mainChassis);
 
-    // ........................................................................
-    // Insert user code here. This is where you use the joystick values to
-    // update your motors, etc.
-    // ........................................................................
+  setOdom(0, 0);
 
-    vex::wait(20, vex::msec); // Sleep the task for a short amount of time to
-                    // prevent wasted resources.
+  Brain.Screen.print("X: %f Y: %f Theta %f", getPos()[0], getPos()[1], getPos()[2]);
+
+  //vex::wait(5000, vex::msec);
+  
+  // toPoint(15, 15, 2);
+  // wait(2000, vex::msec);
+  // toDist(15, -1, 2);
+  // wait(200, vex::msec);
+  // toAng(90, 5);
+  // wait(200, vex::msec);
+  //turnToPoint(0, 0, 5);
+
+  testAuton();
+
+  while (true) {
+    Brain.Screen.clearScreen();
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("X: %f Y: %f Theta %f", getPos()[0], getPos()[1], getPos()[2]);
+    vex::wait(20, vex::msec);
   }
 }
 
